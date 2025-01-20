@@ -7,58 +7,64 @@ using namespace boost::signals2;
 using namespace chaiscript;
 
 
-class IntEditor
+class LineEditor
 {
 public:
-    using IntSignal = boost::signals2::signal<void(int)>;
+    using StringSignal = boost::signals2::signal<void(std::string)>;
 
-    IntEditor(){}
-    void set_i(int i_)
+    LineEditor(){}
+    void set_text(std::string i_)
     {
         i = i_;
-        on_i_updated(i);
+        on_text_updated(i);
     }
 
-    int get_i() { return i; }
-    IntSignal on_i_updated;
+    std::string get_text() { return i; }
+    StringSignal on_text_updated;
 
-    IntSignal& get_on_i_updated() {
-        return on_i_updated;
+    StringSignal& get_on_text_updated() {
+        return on_text_updated;
     }
-
 
     static void registerClass(ChaiScript& chai)
     {
-        chai.add(chaiscript::user_type<IntEditor>(), "IntEditor");
-        chai.add(constructor<IntEditor()>(), "IntEditor");
-        chai.add(chaiscript::fun(&IntEditor::set_i), "set_i");
-        chai.add(chaiscript::fun(&IntEditor::get_i), "get_i");
-        chai.add(chaiscript::fun(&IntEditor::get_on_i_updated), "get_on_i_updated");
+        chai.add(chaiscript::user_type<LineEditor>(), "LineEditor");
+        chai.add(constructor<LineEditor()>(), "LineEditor");
+        chai.add(chaiscript::fun(&LineEditor::set_text), "set_text");
+        chai.add(chaiscript::fun(&LineEditor::get_text), "get_text");
+        chai.add(chaiscript::fun(&LineEditor::get_on_text_updated), "get_on_text_updated");
     }
 
 private:
-    int i = 0;
+    std::string i;
 };
 
 
 class Label
 {
 public:
-    using IntSignal = boost::signals2::signal<void(int)>;
-    void set_text(int i)
+    using StringSignal = boost::signals2::signal<void(std::string)>;
+    void set_text(std::string text_)
     {
-        std::cout << "update text";
+        if (text!=text_)
+        {
+            text = text_;
+            on_text_updated(text);
+        }
     }
 
-    int get_text() { return 0; }
-    IntSignal on_text_updated;
+    std::string get_text() { return text; }
+    StringSignal on_text_updated;
 
     static void registerClass(ChaiScript& chai)
     {
         chai.add(chaiscript::user_type<Label>(), "Label");
         chai.add(constructor<Label()>(), "Label");
         chai.add(chaiscript::fun(&Label::set_text), "set_text");
+        chai.add(chaiscript::fun(&Label::get_text), "get_text");
     }
+private:
+    std::string text;
 };
 
 template<typename T>
@@ -75,22 +81,30 @@ int main()
     ChaiScript chai;
 
     register_type_for_connection<int>(chai);
-    IntEditor::registerClass(chai);
+    register_type_for_connection<std::string>(chai);
+    LineEditor::registerClass(chai);
     Label::registerClass(chai);
 
-    try {
+    try 
+    {
 
         const char* script = R"(
+    
+            // LineEditor{ id: lineEditor }
+            var editor = LineEditor();
+           
+            // Label{ id: label; text:lineEditor.text }
+            var label = Label();
 
-           var editor = IntEditor();
-           var label = Label();
+            connect(editor.get_on_text_updated(), fun[label](value)
+            { 
+                label.set_text(value);
+            });
 
-           connect(editor.get_on_i_updated(), fun[label](value)
-           { 
-               label.set_text(value);
-           });
+            //use            
+            editor.set_text("42");
 
-            editor.set_i(42);
+            print(label.get_text());
 
         )";
         chai.eval(script);
