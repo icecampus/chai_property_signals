@@ -1,0 +1,6 @@
+{
+  "dependencies": [
+    "chaiscript",
+    "boost-signals2"
+  ]
+}
