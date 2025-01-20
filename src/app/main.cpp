@@ -7,18 +7,11 @@ using namespace boost::signals2;
 using namespace chaiscript;
 
 
-using Signal = boost::signals2::signal<void()>;
-using IntSignal = boost::signals2::signal<void(int)>;
-using Slot = boost::signals2::slot<void(), boost::function<void()>>;
-using Pos = boost::signals2::connect_position;
-
-using CallbackFunction = std::function<void()>;
-using IntCallbackFunction = std::function<void(int)>;
-
-
 class IntEditor
 {
 public:
+    using IntSignal = boost::signals2::signal<void(int)>;
+
     IntEditor(){}
     void set_i(int i_)
     {
@@ -34,6 +27,15 @@ public:
     }
 
 
+    static void registerClass(ChaiScript& chai)
+    {
+        chai.add(chaiscript::user_type<IntEditor>(), "IntEditor");
+        chai.add(constructor<IntEditor()>(), "IntEditor");
+        chai.add(chaiscript::fun(&IntEditor::set_i), "set_i");
+        chai.add(chaiscript::fun(&IntEditor::get_i), "get_i");
+        chai.add(chaiscript::fun(&IntEditor::get_on_i_updated), "get_on_i_updated");
+    }
+
 private:
     int i = 0;
 };
@@ -42,6 +44,7 @@ private:
 class Label
 {
 public:
+    using IntSignal = boost::signals2::signal<void(int)>;
     void set_text(int i)
     {
         std::cout << "update text";
@@ -49,40 +52,31 @@ public:
 
     int get_text() { return 0; }
     IntSignal on_text_updated;
+
+    static void registerClass(ChaiScript& chai)
+    {
+        chai.add(chaiscript::user_type<Label>(), "Label");
+        chai.add(constructor<Label()>(), "Label");
+        chai.add(chaiscript::fun(&Label::set_text), "set_text");
+    }
 };
 
-void connect(Signal* signal, CallbackFunction callback)
+template<typename T>
+void register_type_for_connection(ChaiScript& chai)
 {
-    signal->connect(callback);
+    chai.add(chaiscript::fun([](boost::signals2::signal<void(T)>& signal, const std::function<void(T)>& callback) {
+        signal.connect(callback);
+        }), "connect");
 }
 
-void connect_int(IntSignal& signal, IntCallbackFunction& callback)
-{
-    signal.connect(callback);
-}
 
 int main()
 {
     ChaiScript chai;
 
-    chai.add(chaiscript::user_type<IntEditor>(), "IntEditor");
-    chai.add(constructor<IntEditor()>(), "IntEditor");
-    chai.add(chaiscript::fun(&IntEditor::set_i), "set_i");
-    chai.add(chaiscript::fun(&IntEditor::get_i), "get_i");
-    chai.add(chaiscript::fun(&IntEditor::get_on_i_updated), "get_on_i_updated");
-
-    chai.add(chaiscript::user_type<Label>(), "Label");
-    chai.add(constructor<Label()>(), "Label");
-    chai.add(chaiscript::fun(&Label::set_text), "set_text");
-
-
-    chai.add(chaiscript::fun([](IntSignal& editor, const IntCallbackFunction& callback) {
-        editor.connect(callback);
-        }), "connect");
-
-    chai.add(chaiscript::fun([](Signal& editor, const CallbackFunction& callback) {
-        editor.connect(callback);
-        }), "connect");
+    register_type_for_connection<int>(chai);
+    IntEditor::registerClass(chai);
+    Label::registerClass(chai);
 
     try {
 
