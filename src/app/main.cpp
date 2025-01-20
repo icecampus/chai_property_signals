@@ -6,81 +6,103 @@
 using namespace boost::signals2;
 using namespace chaiscript;
 
-// Функция, которая будет подключаться к сигналу
-void on_event()
-{
-    std::cout << "Event come!" << std::endl;
-}
-
 
 using Signal = boost::signals2::signal<void()>;
+using IntSignal = boost::signals2::signal<void(int)>;
 using Slot = boost::signals2::slot<void(), boost::function<void()>>;
 using Pos = boost::signals2::connect_position;
+
 using CallbackFunction = std::function<void()>;
+using IntCallbackFunction = std::function<void(int)>;
+
+
+class IntEditor
+{
+public:
+    IntEditor(){}
+    void set_i(int i_)
+    {
+        i = i_;
+        on_i_updated(i);
+    }
+
+    int get_i() { return i; }
+    IntSignal on_i_updated;
+
+    IntSignal& get_on_i_updated() {
+        return on_i_updated;
+    }
+
+
+private:
+    int i = 0;
+};
+
+
+class Label
+{
+public:
+    void set_text(int i)
+    {
+        std::cout << "update text";
+    }
+
+    int get_text() { return 0; }
+    IntSignal on_text_updated;
+};
 
 void connect(Signal* signal, CallbackFunction callback)
 {
     signal->connect(callback);
 }
 
+void connect_int(IntSignal& signal, IntCallbackFunction& callback)
+{
+    signal.connect(callback);
+}
+
 int main()
 {
-    // Создание ChaiScript движка
     ChaiScript chai;
 
+    chai.add(chaiscript::user_type<IntEditor>(), "IntEditor");
+    chai.add(constructor<IntEditor()>(), "IntEditor");
+    chai.add(chaiscript::fun(&IntEditor::set_i), "set_i");
+    chai.add(chaiscript::fun(&IntEditor::get_i), "get_i");
+    chai.add(chaiscript::fun(&IntEditor::get_on_i_updated), "get_on_i_updated");
+
+    chai.add(chaiscript::user_type<Label>(), "Label");
+    chai.add(constructor<Label()>(), "Label");
+    chai.add(chaiscript::fun(&Label::set_text), "set_text");
 
 
-    // Экспорт классов и функций в ChaiScript
-    chai.add(chaiscript::fun(&on_event), "on_event");
+    chai.add(chaiscript::fun([](IntSignal& editor, const IntCallbackFunction& callback) {
+        editor.connect(callback);
+        }), "connect");
 
-
-    chai.add(chaiscript::fun(&connect), "connect");
-
-
-    // Регистрация типа Signal в ChaiScript
-    chai.add(user_type<Signal>(), "Signal");
-
-    chai.add(constructor<Signal()>(), "Signal");
-
-    //Добавление метода connect для сигнала
-    chai.add(
-        fun(static_cast<connection(Signal::*)(const Slot&, Pos)>(&Signal::connect)),
-        "connect"
-    );
-
-    chai.add(fun(static_cast<void(signal<void()>::*) ()>(&signal<void()>::operator())), "emit");
-
-    
+    chai.add(chaiscript::fun([](Signal& editor, const CallbackFunction& callback) {
+        editor.connect(callback);
+        }), "connect");
 
     try {
 
         const char* script = R"(
 
-            var sig = Signal();
+           var editor = IntEditor();
+           var label = Label();
 
-            connect(sig, fun()
-            { 
-                print(1) 
-            });
+           connect(editor.get_on_i_updated(), fun[label](value)
+           { 
+               label.set_text(value);
+           });
 
-            sig.emit();
+            editor.set_i(42);
 
         )";
         chai.eval(script);
-
-
-
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
-
-    //// Подключение слота к сигналу
-
-    //// Эмитирование сигнала
-    //chai.eval(R"(
-    //    sig.emit();
-    //)");
-
-
 }
+
