@@ -92,6 +92,7 @@ int main()
     
             // LineEditor{ id: lineEditor }
             var editor = LineEditor();
+            //end
            
             // Label{ id: label; text:lineEditor.text }
             var label = Label();
@@ -100,6 +101,7 @@ int main()
             { 
                 label.set_text(value);
             });
+            //end
 
             //use            
             editor.set_text("42");
